@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "planning-game-pro": {
+      "command": "node",
+      "args": ["~/mcp-servers/planning-game/index.js"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "~/mcp-servers/planning-game-instances/pro/serviceAccountKey.json",
+        "FIREBASE_DATABASE_URL": "https://planning-gamexp-default-rtdb.europe-west1.firebasedatabase.app",
+        "MCP_INSTANCE_DIR": "~/mcp-servers/planning-game-instances/pro"
+      }
+    }
+  }
+}

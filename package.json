@@ -1,0 +1,30 @@
+{
+  "name": "planning-game-mcp",
+  "version": "1.11.3",
+  "description": "MCP Server for Planning GameXP - Firebase RTDB integration for Claude Code",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "planning-game",
+    "firebase",
+    "project-management"
+  ],
+  "author": "Geniova",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "firebase-admin": "^12.6.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  }
+}

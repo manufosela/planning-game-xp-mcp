@@ -1,0 +1,4 @@
+node_modules/
+serviceAccountKey.json
+mcp.user.json
+.mcp-user.json
