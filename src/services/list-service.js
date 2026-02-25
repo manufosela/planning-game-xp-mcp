@@ -1,35 +1,6 @@
 import { getDatabase } from '../firebase.js';
 
 /**
- * Hardcoded fallback lists - used when Firebase is unavailable
- */
-const FALLBACK_LISTS = {
-  bugPriority: {
-    'APPLICATION BLOCKER': 1,
-    'DEPARTMENT BLOCKER': 2,
-    'INDIVIDUAL BLOCKER': 3,
-    'USER EXPERIENCE ISSUE': 4,
-    'WORKFLOW IMPROVEMENT': 5,
-    'WORKAROUND AVAILABLE ISSUE': 6
-  },
-  bugStatus: {
-    'Created': 1,
-    'Assigned': 2,
-    'Fixed': 3,
-    'Verified': 4,
-    'Closed': 5
-  },
-  taskStatus: {
-    'To Do': 1,
-    'In Progress': 2,
-    'To Validate': 3,
-    'Done&Validated': 4,
-    'Blocked': 5,
-    'Reopened': 6
-  }
-};
-
-/**
  * Firebase RTDB paths for each list type
  */
 const LIST_PATHS = {
@@ -48,9 +19,11 @@ const cache = {};
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
- * Load a list from Firebase RTDB
+ * Load a list from Firebase RTDB.
+ * Throws on failure — no silent fallbacks.
  * @param {string} listType - One of: bugPriority, bugStatus, taskStatus
- * @returns {Promise<Object>} The list as { text: order } or { text: order } object
+ * @returns {Promise<Object>} The list as { text: order } object
+ * @throws {Error} If list type is unknown, Firebase fails, or data is empty
  */
 async function loadListFromFirebase(listType) {
   const path = LIST_PATHS[listType];
@@ -58,27 +31,25 @@ async function loadListFromFirebase(listType) {
     throw new Error(`Unknown list type: "${listType}". Valid types: ${Object.keys(LIST_PATHS).join(', ')}`);
   }
 
-  try {
-    const db = getDatabase();
-    const snapshot = await db.ref(path).once('value');
-    const data = snapshot.val();
+  const db = getDatabase();
+  const snapshot = await db.ref(path).once('value');
+  const data = snapshot.val();
 
-    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-      return data;
-    }
-
-    console.error(`[ListService] WARNING: Empty or null data at ${path}, using fallback`);
-    return FALLBACK_LISTS[listType];
-  } catch (error) {
-    console.error(`[ListService] WARNING: Failed to load ${path}: ${error.message}, using fallback`);
-    return FALLBACK_LISTS[listType];
+  if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+    throw new Error(
+      `[ListService] Empty or null data at Firebase path "${path}". ` +
+      `Check that the path exists and contains valid list entries.`
+    );
   }
+
+  return data;
 }
 
 /**
- * Get a list, using cache if available and not expired
+ * Get a list, using cache if available and not expired.
  * @param {string} listType - One of: bugPriority, bugStatus, taskStatus
  * @returns {Promise<Object>} The list as { text: order } object
+ * @throws {Error} If Firebase read fails or data is empty
  */
 async function getList(listType) {
   const cached = cache[listType];
@@ -105,7 +76,6 @@ export async function getListTexts(listType) {
 
 /**
  * Get a list as array of {id, text} pairs, sorted by order
- * The "id" is the key in Firebase, the "text" is the same key (since keys ARE the text labels)
  * @param {string} listType - One of: bugPriority, bugStatus, taskStatus
  * @returns {Promise<Array<{id: string, text: string, order: number}>>}
  */
@@ -129,10 +99,10 @@ export async function isValidValue(listType, value) {
 
 /**
  * Resolve a value to ensure it's valid for the given list type.
- * Accepts the text value and returns it if valid.
+ * Accepts the text value and returns it if valid (case-insensitive).
  * @param {string} listType - One of: bugPriority, bugStatus, taskStatus
  * @param {string} value - Text value to resolve
- * @returns {Promise<string>} The resolved value
+ * @returns {Promise<string>} The resolved canonical value
  * @throws {Error} If value cannot be resolved
  */
 export async function resolveValue(listType, value) {
@@ -169,13 +139,4 @@ export function invalidateCache(listType) {
       delete cache[key];
     }
   }
-}
-
-/**
- * Get the fallback list for a given type (for backwards compatibility)
- * @param {string} listType
- * @returns {Object}
- */
-export function getFallbackList(listType) {
-  return FALLBACK_LISTS[listType] || {};
 }

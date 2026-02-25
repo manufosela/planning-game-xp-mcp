@@ -146,12 +146,12 @@ export const VALID_BUG_STATUSES = ['Created', 'Assigned', 'Fixed', 'Verified', '
  * Valid priorities for bugs
  */
 export const VALID_BUG_PRIORITIES = [
-  'APPLICATION BLOCKER',
-  'DEPARTMENT BLOCKER',
-  'INDIVIDUAL BLOCKER',
-  'USER EXPERIENCE ISSUE',
-  'WORKFLOW IMPROVEMENT',
-  'WORKAROUND AVAILABLE ISSUE'
+  'Application Blocker',
+  'Department Blocker',
+  'Individual Blocker',
+  'User Experience Issue',
+  'Workaround Available Issue',
+  'Workflow Improvement'
 ];
 
 /**
@@ -170,7 +170,7 @@ export const VALID_TASK_PRIORITIES = ['High', 'Medium', 'Low'];
 export const TYPE_DEFAULTS = {
   bug: {
     status: 'Created',
-    priority: 'USER EXPERIENCE ISSUE'
+    priority: 'User Experience Issue'
   },
   task: {
     status: 'To Do',

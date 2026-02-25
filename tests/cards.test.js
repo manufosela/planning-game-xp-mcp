@@ -47,12 +47,12 @@ const { invalidateCache } = await import('../src/services/list-service.js');
  */
 function setupMockLists() {
   setMockRtdbData('/data/bugpriorityList', {
-    'APPLICATION BLOCKER': 1,
-    'DEPARTMENT BLOCKER': 2,
-    'INDIVIDUAL BLOCKER': 3,
-    'USER EXPERIENCE ISSUE': 4,
-    'WORKFLOW IMPROVEMENT': 5,
-    'WORKAROUND AVAILABLE ISSUE': 6
+    'Application Blocker': 1,
+    'Department Blocker': 2,
+    'Individual Blocker': 3,
+    'User Experience Issue': 4,
+    'Workaround Available Issue': 5,
+    'Workflow Improvement': 6
   });
   setMockRtdbData('/data/statusList/bug-card', {
     'Created': 1,
@@ -117,7 +117,7 @@ describe('cards.js', () => {
     });
 
     it('should pass for valid bug priority', async () => {
-      await expect(validateBugFields({ priority: 'APPLICATION BLOCKER' })).resolves.not.toThrow();
+      await expect(validateBugFields({ priority: 'Application Blocker' })).resolves.not.toThrow();
     });
 
     it('should throw for invalid bug priority', async () => {
@@ -143,7 +143,7 @@ describe('cards.js', () => {
     });
 
     it('should throw for invalid task priority', async () => {
-      await expect(validateTaskFields({ priority: 'APPLICATION BLOCKER' })).rejects.toThrow(/Invalid task priority/);
+      await expect(validateTaskFields({ priority: 'Application Blocker' })).rejects.toThrow(/Invalid task priority/);
     });
   });
 
@@ -914,7 +914,7 @@ describe('cards.js', () => {
   describe('validateBugStatusTransition', () => {
     it('should pass when not changing status', () => {
       const currentBug = { status: 'Fixed' };
-      const updates = { priority: 'APPLICATION BLOCKER' };
+      const updates = { priority: 'Application Blocker' };
       expect(() => validateBugStatusTransition(currentBug, updates)).not.toThrow();
     });
 
@@ -1207,7 +1207,7 @@ describe('cards.js', () => {
         type: 'bug',
         title: 'Test Bug',
         description: 'A bug',
-        priority: 'APPLICATION BLOCKER'
+        priority: 'Application Blocker'
       });
 
       const response = JSON.parse(result.content[0].text);
