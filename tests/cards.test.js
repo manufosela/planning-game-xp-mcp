@@ -6,7 +6,7 @@ import {
   getMockRtdbData
 } from './__mocks__/firebase.js';
 
-// Mock the firebase module before importing cards
+// Mock the firebase module before importing cards and list-service
 vi.mock('../src/firebase.js', async () => {
   const mock = await import('./__mocks__/firebase.js');
   return {
@@ -40,9 +40,42 @@ const {
   validateBugStatusTransition
 } = await import('../src/tools/cards.js');
 
+const { invalidateCache } = await import('../src/services/list-service.js');
+
+/**
+ * Setup mock Firebase list data for ListService
+ */
+function setupMockLists() {
+  setMockRtdbData('/data/bugpriorityList', {
+    'Application Blocker': 1,
+    'Department Blocker': 2,
+    'Individual Blocker': 3,
+    'User Experience Issue': 4,
+    'Workaround Available Issue': 5,
+    'Workflow Improvement': 6
+  });
+  setMockRtdbData('/data/statusList/bug-card', {
+    'Created': 1,
+    'Assigned': 2,
+    'Fixed': 3,
+    'Verified': 4,
+    'Closed': 5
+  });
+  setMockRtdbData('/data/statusList/task-card', {
+    'To Do': 1,
+    'In Progress': 2,
+    'To Validate': 3,
+    'Done&Validated': 4,
+    'Blocked': 5,
+    'Reopened': 6
+  });
+}
+
 describe('cards.js', () => {
   beforeEach(() => {
     resetMockData();
+    invalidateCache();
+    setupMockLists();
   });
 
   describe('validateEntityId', () => {
@@ -74,43 +107,43 @@ describe('cards.js', () => {
   });
 
   describe('validateBugFields', () => {
-    it('should pass for valid bug status', () => {
-      expect(() => validateBugFields({ status: 'Created' })).not.toThrow();
-      expect(() => validateBugFields({ status: 'Fixed' })).not.toThrow();
+    it('should pass for valid bug status', async () => {
+      await expect(validateBugFields({ status: 'Created' })).resolves.not.toThrow();
+      await expect(validateBugFields({ status: 'Fixed' })).resolves.not.toThrow();
     });
 
-    it('should throw for invalid bug status', () => {
-      expect(() => validateBugFields({ status: 'In Progress' })).toThrow(/Invalid bug status/);
+    it('should throw for invalid bug status', async () => {
+      await expect(validateBugFields({ status: 'In Progress' })).rejects.toThrow(/Invalid bug status/);
     });
 
-    it('should pass for valid bug priority', () => {
-      expect(() => validateBugFields({ priority: 'APPLICATION BLOCKER' })).not.toThrow();
+    it('should pass for valid bug priority', async () => {
+      await expect(validateBugFields({ priority: 'Application Blocker' })).resolves.not.toThrow();
     });
 
-    it('should throw for invalid bug priority', () => {
-      expect(() => validateBugFields({ priority: 'High' })).toThrow(/Invalid bug priority/);
+    it('should throw for invalid bug priority', async () => {
+      await expect(validateBugFields({ priority: 'High' })).rejects.toThrow(/Invalid bug priority/);
     });
   });
 
   describe('validateTaskFields', () => {
-    it('should pass for valid task status', () => {
-      VALID_TASK_STATUSES.forEach(status => {
-        expect(() => validateTaskFields({ status })).not.toThrow();
-      });
+    it('should pass for valid task status', async () => {
+      for (const status of VALID_TASK_STATUSES) {
+        await expect(validateTaskFields({ status })).resolves.not.toThrow();
+      }
     });
 
-    it('should throw for invalid task status', () => {
-      expect(() => validateTaskFields({ status: 'Created' })).toThrow(/Invalid task status/);
+    it('should throw for invalid task status', async () => {
+      await expect(validateTaskFields({ status: 'Created' })).rejects.toThrow(/Invalid task status/);
     });
 
-    it('should pass for valid task priority', () => {
-      VALID_TASK_PRIORITIES.forEach(priority => {
-        expect(() => validateTaskFields({ priority })).not.toThrow();
-      });
+    it('should pass for valid task priority', async () => {
+      for (const priority of VALID_TASK_PRIORITIES) {
+        await expect(validateTaskFields({ priority })).resolves.not.toThrow();
+      }
     });
 
-    it('should throw for invalid task priority', () => {
-      expect(() => validateTaskFields({ priority: 'APPLICATION BLOCKER' })).toThrow(/Invalid task priority/);
+    it('should throw for invalid task priority', async () => {
+      await expect(validateTaskFields({ priority: 'Application Blocker' })).rejects.toThrow(/Invalid task priority/);
     });
   });
 
@@ -881,7 +914,7 @@ describe('cards.js', () => {
   describe('validateBugStatusTransition', () => {
     it('should pass when not changing status', () => {
       const currentBug = { status: 'Fixed' };
-      const updates = { priority: 'APPLICATION BLOCKER' };
+      const updates = { priority: 'Application Blocker' };
       expect(() => validateBugStatusTransition(currentBug, updates)).not.toThrow();
     });
 
@@ -1174,7 +1207,7 @@ describe('cards.js', () => {
         type: 'bug',
         title: 'Test Bug',
         description: 'A bug',
-        priority: 'APPLICATION BLOCKER'
+        priority: 'Application Blocker'
       });
 
       const response = JSON.parse(result.content[0].text);
