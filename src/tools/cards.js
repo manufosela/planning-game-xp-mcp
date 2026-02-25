@@ -3,6 +3,7 @@ import { getDatabase, getFirestore } from '../firebase.js';
 import { SECTION_MAP, CARD_TYPE_MAP, GROUP_MAP, getAbbrId, buildSectionPath } from '../utils.js';
 import { validateCommitsField, appendCommitsToCard } from './commits-validation.js';
 import { getMcpUser } from '../user.js';
+import { getListTexts, getListPairs, resolveValue, isValidValue } from '../services/list-service.js';
 
 /**
  * Generate all possible ratios for a scoring system and map to priorities
@@ -264,28 +265,34 @@ export function collectEntityIdIssues(data) {
 export const REQUIRED_FIELDS_TO_CLOSE_BUG = ['commits', 'rootCause', 'resolution'];
 
 /**
- * Validate bug fields (status, priority)
+ * Validate bug fields (status, priority) using dynamic lists from Firebase
  * @param {Object} data - Card data to validate
  * @param {boolean} isUpdate - Whether this is an update operation
  * @throws {Error} If validation fails
  */
-export function validateBugFields(data, isUpdate = false) {
-  // Validate status if provided
+export async function validateBugFields(data, isUpdate = false) {
+  // Validate and resolve status if provided
   if (data.status !== undefined) {
-    if (!VALID_BUG_STATUSES.includes(data.status)) {
+    try {
+      data.status = await resolveValue('bugStatus', data.status);
+    } catch {
+      const validStatuses = await getListTexts('bugStatus');
       throw new Error(
         `Invalid bug status "${data.status}". ` +
-        `Valid bug statuses are: ${VALID_BUG_STATUSES.join(', ')}`
+        `Valid bug statuses are: ${validStatuses.join(', ')}`
       );
     }
   }
 
-  // Validate priority if provided
+  // Validate and resolve priority if provided
   if (data.priority !== undefined) {
-    if (!VALID_BUG_PRIORITIES.includes(data.priority)) {
+    try {
+      data.priority = await resolveValue('bugPriority', data.priority);
+    } catch {
+      const validPriorities = await getListTexts('bugPriority');
       throw new Error(
         `Invalid bug priority "${data.priority}". ` +
-        `Valid bug priorities are: ${VALID_BUG_PRIORITIES.join(', ')}`
+        `Valid bug priorities are: ${validPriorities.join(', ')}`
       );
     }
   }
@@ -341,18 +348,21 @@ export function validateBugStatusTransition(currentBug, updates) {
  * @param {boolean} isUpdate - Whether this is an update operation
  * @throws {Error} If validation fails
  */
-export function validateTaskFields(data, isUpdate = false) {
-  // Validate status if provided
+export async function validateTaskFields(data, isUpdate = false) {
+  // Validate and resolve status if provided
   if (data.status !== undefined) {
-    if (!VALID_TASK_STATUSES.includes(data.status)) {
+    try {
+      data.status = await resolveValue('taskStatus', data.status);
+    } catch {
+      const validStatuses = await getListTexts('taskStatus');
       throw new Error(
         `Invalid task status "${data.status}". ` +
-        `Valid task statuses are: ${VALID_TASK_STATUSES.join(', ')}`
+        `Valid task statuses are: ${validStatuses.join(', ')}`
       );
     }
   }
 
-  // Validate priority if provided
+  // Validate priority if provided (for tasks, priority is usually calculated)
   if (data.priority !== undefined) {
     if (!VALID_TASK_PRIORITIES.includes(data.priority)) {
       throw new Error(
@@ -807,9 +817,9 @@ export async function createCard({ projectId, type, title, description, descript
 
   // Validate type-specific fields before creating
   if (type === 'bug') {
-    validateBugFields(initialData, false);
+    await validateBugFields(initialData, false);
   } else if (type === 'task') {
-    validateTaskFields(initialData, false);
+    await validateTaskFields(initialData, false);
 
     // Tasks MUST use descriptionStructured format
     if (!descriptionStructured || descriptionStructured.length === 0) {
@@ -1338,27 +1348,30 @@ export function collectValidationIssues(currentCard, updates, type) {
  * @param {Object} data - Data to validate
  * @returns {Object} Validation results
  */
-export function collectBugValidationIssues(data) {
+export async function collectBugValidationIssues(data) {
   const result = {
     valid: true,
     errors: []
   };
 
-  if (data.status !== undefined && !VALID_BUG_STATUSES.includes(data.status)) {
+  const validBugStatuses = await getListTexts('bugStatus');
+  const validBugPriorities = await getListTexts('bugPriority');
+
+  if (data.status !== undefined && !validBugStatuses.includes(data.status)) {
     result.valid = false;
     result.errors.push({
       code: 'INVALID_STATUS',
       message: `Invalid bug status "${data.status}".`,
-      validValues: VALID_BUG_STATUSES
+      validValues: validBugStatuses
     });
   }
 
-  if (data.priority !== undefined && !VALID_BUG_PRIORITIES.includes(data.priority)) {
+  if (data.priority !== undefined && !validBugPriorities.includes(data.priority)) {
     result.valid = false;
     result.errors.push({
       code: 'INVALID_PRIORITY',
       message: `Invalid bug priority "${data.priority}".`,
-      validValues: VALID_BUG_PRIORITIES
+      validValues: validBugPriorities
     });
   }
 
@@ -1370,18 +1383,20 @@ export function collectBugValidationIssues(data) {
  * @param {Object} data - Data to validate
  * @returns {Object} Validation results
  */
-export function collectTaskValidationIssues(data) {
+export async function collectTaskValidationIssues(data) {
   const result = {
     valid: true,
     errors: []
   };
 
-  if (data.status !== undefined && !VALID_TASK_STATUSES.includes(data.status)) {
+  const validTaskStatuses = await getListTexts('taskStatus');
+
+  if (data.status !== undefined && !validTaskStatuses.includes(data.status)) {
     result.valid = false;
     result.errors.push({
       code: 'INVALID_STATUS',
       message: `Invalid task status "${data.status}".`,
-      validValues: VALID_TASK_STATUSES
+      validValues: validTaskStatuses
     });
   }
 
@@ -1594,12 +1609,12 @@ export async function updateCard({ projectId, type, firebaseId, updates, validat
 
     // Collect type-specific validation
     if (type === 'bug') {
-      validationResult.typeValidation = collectBugValidationIssues(updates);
+      validationResult.typeValidation = await collectBugValidationIssues(updates);
       if (!validationResult.typeValidation.valid) {
         validationResult.valid = false;
       }
     } else if (type === 'task') {
-      validationResult.typeValidation = collectTaskValidationIssues(updates);
+      validationResult.typeValidation = await collectTaskValidationIssues(updates);
       if (!validationResult.typeValidation.valid) {
         validationResult.valid = false;
       }
@@ -1659,11 +1674,11 @@ export async function updateCard({ projectId, type, firebaseId, updates, validat
 
   // Validate type-specific fields
   if (type === 'bug') {
-    validateBugFields(updates, true);
+    await validateBugFields(updates, true);
     // Additional bug-specific validation for status transitions (closing)
     validateBugStatusTransition(currentCard, updates);
   } else if (type === 'task') {
-    validateTaskFields(updates, true);
+    await validateTaskFields(updates, true);
     // Additional task-specific validation for status transitions
     validateStatusTransition(currentCard, updates, type);
 
@@ -2075,12 +2090,14 @@ export async function checkPendingBlockers(db, projectId, card) {
  */
 export async function getTransitionRules({ type = 'task' }) {
   if (type === 'task') {
+    const taskStatusPairs = await getListPairs('taskStatus');
     return {
       content: [{
         type: 'text',
         text: JSON.stringify({
           type: 'task',
-          validStatuses: VALID_TASK_STATUSES,
+          validStatuses: taskStatusPairs.map(p => p.text),
+          validStatusPairs: taskStatusPairs,
           mcpRestrictedStatuses: VALIDATOR_ONLY_STATUSES,
           mcpRestrictedNote: 'MCP cannot set tasks to "Done&Validated". Only validators can approve tasks.',
           transitionRules: TASK_TRANSITION_RULES,
@@ -2107,13 +2124,17 @@ export async function getTransitionRules({ type = 'task' }) {
       }]
     };
   } else if (type === 'bug') {
+    const bugStatusPairs = await getListPairs('bugStatus');
+    const bugPriorityPairs = await getListPairs('bugPriority');
     return {
       content: [{
         type: 'text',
         text: JSON.stringify({
           type: 'bug',
-          validStatuses: VALID_BUG_STATUSES,
-          validPriorities: VALID_BUG_PRIORITIES,
+          validStatuses: bugStatusPairs.map(p => p.text),
+          validStatusPairs: bugStatusPairs,
+          validPriorities: bugPriorityPairs.map(p => p.text),
+          validPriorityPairs: bugPriorityPairs,
           note: 'Bugs follow a simpler workflow: Created → Assigned → Fixed → Verified → Closed'
         }, null, 2)
       }]
